@@ -26,10 +26,13 @@ _ALLOWED_ORIGINS = [
     "http://localhost:8080",
     "http://localhost"
     "http://127.0.0.1:80",
-    "http://34.133.26.155"
+    "http://34.133.26.155",
     "34.133.26.155",
-    
-]
+    "http://34.133.26.155:8080",
+    "http://34.133.26.155:80",
+    "http://34.133.26.155",
+
+    ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
