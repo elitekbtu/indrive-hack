@@ -280,6 +280,7 @@ class CarAnalysisLLMService:
         Используй ТОЧНЫЕ данные из анализа: части автомобиля, типы повреждений, проценты уверенности.
         Тон: опытный наставник, который знает каждую деталь твоего автомобиля.
         Объем: до 150 слов.
+        Формат: используй простые заголовки без markdown (например, "1. ТОЧНАЯ ДИАГНОСТИКА:", а не "#### 1. ...").
         """
         
         response = self.client.chat.completions.create(
@@ -313,7 +314,7 @@ class CarAnalysisLLMService:
         - "Safety Verified"
 
         Тон: профессиональный, заботливый, вызывающий доверие.
-        Формат: как уведомление в приложении для пассажира.
+        Формат: как уведомление в приложении для пассажира, без использования markdown.
         Объем: до 80 слов.
         """
         
@@ -358,6 +359,7 @@ class CarAnalysisLLMService:
         Используй ТОЧНЫЕ данные анализа: конкретные части, типы повреждений, проценты уверенности.
         Тон: профессиональный стратегический аналитик.
         Объем: до 180 слов.
+        Формат: используй простые заголовки без markdown (например, "1. ТЕХНИЧЕСКАЯ ОЦЕНКА:", а не "#### 1. ...").
         """
         
         response = self.client.chat.completions.create(
@@ -423,40 +425,52 @@ class CarAnalysisLLMService:
             return self._generate_enhanced_fallback_recommendations(context, score)
     
     def _calculate_condition_score(self, analysis: Dict[str, Any]) -> int:
-        """Calculate overall car condition score (0-100)"""
+        """Calculate overall car condition score (0-100) using a weighted system"""
         score = 100
+        
+        # Weights for different factors
+        WEIGHTS = {
+            "damage_base": 40,
+            "rust": 25,
+            "dent": 15,
+            "scratch": 10,
+            "part_damage": 10,
+            "dirty": 25
+        }
         
         # Damage penalty
         if analysis.get("is_damaged", False):
-            damage_parts = analysis.get("damage_parts_local", {})
-            rust_scratch = analysis.get("rust_scratch", {})
-            
-            # Base damage penalty
-            score -= 40
-            
-            # Additional penalties based on damage type
-            if rust_scratch and "pred_label" in rust_scratch:
-                damage_type = rust_scratch["pred_label"].lower()
+            damage_prob = analysis.get("damage_local", {}).get("damage_prob", 0)
+            score -= WEIGHTS["damage_base"] * damage_prob
+
+            # Damage type penalty (rust/scratch/dent)
+            rust_scratch_analysis = analysis.get("rust_scratch", {})
+            if rust_scratch_analysis:
+                damage_type = rust_scratch_analysis.get("pred_label", "").lower()
+                type_confidence = rust_scratch_analysis.get("pred_score", 0)
+                
                 if "rust" in damage_type:
-                    score -= 15  # Rust is serious
+                    score -= WEIGHTS["rust"] * type_confidence
                 elif "dent" in damage_type:
-                    score -= 10  # Dents affect appearance
+                    score -= WEIGHTS["dent"] * type_confidence
                 elif "scratch" in damage_type:
-                    score -= 5   # Scratches are cosmetic
-        
-        # Cleanliness penalty
-        dirty_result = analysis.get("dirty", {})
-        if dirty_result:
-            dirty_prob = dirty_result.get("dirty_prob", 0)
-            clean_prob = dirty_result.get("clean_prob", 1)
-            
-            if dirty_prob > clean_prob:
-                # Scale penalty based on confidence
-                cleanliness_penalty = int(20 * dirty_prob)
-                score -= cleanliness_penalty
+                    score -= WEIGHTS["scratch"] * type_confidence
+
+            # Damaged parts penalty
+            damage_parts_analysis = analysis.get("damage_parts_local", {})
+            if damage_parts_analysis:
+                part_confidence = damage_parts_analysis.get("pred_score", 0)
+                score -= WEIGHTS["part_damage"] * part_confidence
+
+        # Cleanliness penalty (only if not damaged)
+        else:
+            dirty_analysis = analysis.get("dirty", {})
+            if dirty_analysis:
+                dirty_prob = dirty_analysis.get("dirty_prob", 0)
+                score -= WEIGHTS["dirty"] * dirty_prob
         
         # Ensure score is within bounds
-        return max(0, min(100, score))
+        return max(0, int(score))
 
     def _generate_enhanced_fallback_recommendations(self, context: str, score: int) -> list:
         """Generate enhanced fallback recommendations based on analysis"""

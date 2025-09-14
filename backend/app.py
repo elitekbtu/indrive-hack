@@ -7,10 +7,25 @@ import os
 
 from inference.inference_damage import load_checkpoint, predict_image_bytes
 from inference.inference_dirty import predict_image_path
-from inference.inference_rust_scratch import predict_image_path as predict_rust_scratch_image_path
 from inference.inference_damage_parts import (
     load_checkpoint as load_damage_parts_ckpt,
     predict_image_bytes as predict_damage_parts_bytes,
+)
+from inference.inference_damaged_windows import (
+    load_checkpoint as load_damaged_windows_ckpt,
+    predict_image_bytes as predict_damaged_windows_bytes,
+)
+from inference.inference_unified_windows import (
+    load_checkpoint as load_unified_windows_ckpt,
+    predict_image_bytes as predict_unified_windows_bytes,
+)
+from inference.inference_scratch_dent import (
+    load_checkpoint as load_scratch_dent_ckpt,
+    predict_image_bytes as predict_scratch_dent_bytes,
+)
+from inference.inference_tire_classification import (
+    load_checkpoint as load_tire_classification_ckpt,
+    predict_image_bytes as predict_tire_classification_bytes,
 )
 from services.llm_service import llm_service
 
@@ -80,6 +95,16 @@ async def damage_parts_local(image: UploadFile = File(...)):
     out["pred_label"] = idx_to_class_p.get(pred_idx, str(pred_idx))
     return out
 
+@app.post("/damaged_windows_local")
+async def damaged_windows_local(image: UploadFile = File(...)):
+    ckpt_path = os.path.join("models", "damaged_windows.pt")
+    if not os.path.exists(ckpt_path):
+        return {"error": "Local checkpoint not found. Train with trains/train_damaged_windows.py first.", "expected": ckpt_path}
+    image_bytes = await image.read()
+    model_w, tf_w, class_to_idx_w = load_damaged_windows_ckpt(ckpt_path)
+    result = predict_damaged_windows_bytes(model_w, tf_w, image_bytes, class_to_idx_w)
+    return result
+
 @app.post("/dirty_local")
 async def dirty_local(image: UploadFile = File(...)):
     ckpt_path = os.path.join("models", "dirty_binary.pt")
@@ -104,6 +129,66 @@ async def dirty_local(image: UploadFile = File(...)):
     return result
 
 
+@app.post("/damaged_windows_local")
+async def damaged_windows_local(image: UploadFile = File(...)):
+    ckpt_path = os.path.join("models", "damaged_windows.pt")
+    if not os.path.exists(ckpt_path):
+        return {"error": "Local checkpoint not found. Train with trains/train_damaged_windows.py first.", "expected": ckpt_path}
+    
+    image_bytes = await image.read()
+    try:
+        model_w, tf_w, class_to_idx_w = load_damaged_windows_ckpt(ckpt_path)
+        result = predict_damaged_windows_bytes(model_w, tf_w, image_bytes, class_to_idx_w)
+        return result
+    except Exception as e:
+        return {"error": f"Damaged windows prediction failed: {str(e)}"}
+
+
+@app.post("/unified_windows_local")
+async def unified_windows_local(image: UploadFile = File(...)):
+    ckpt_path = os.path.join("models", "unified_windows.pt")
+    if not os.path.exists(ckpt_path):
+        return {"error": "Local checkpoint not found. Train with trains/train_unified_windows.py first.", "expected": ckpt_path}
+    
+    image_bytes = await image.read()
+    try:
+        model_uw, tf_uw, class_to_idx_uw = load_unified_windows_ckpt(ckpt_path)
+        result = predict_unified_windows_bytes(model_uw, tf_uw, image_bytes, class_to_idx_uw)
+        return result
+    except Exception as e:
+        return {"error": f"Unified windows prediction failed: {str(e)}"}
+
+
+@app.post("/scratch_dent_local")
+async def scratch_dent_local(image: UploadFile = File(...)):
+    ckpt_path = os.path.join("models", "scratch_dent.pt")
+    if not os.path.exists(ckpt_path):
+        return {"error": "Local checkpoint not found. Train with trains/train_scratch_dent.py first.", "expected": ckpt_path}
+    
+    image_bytes = await image.read()
+    try:
+        model_sd, tf_sd, class_to_idx_sd = load_scratch_dent_ckpt(ckpt_path)
+        result = predict_scratch_dent_bytes(model_sd, tf_sd, image_bytes, class_to_idx_sd)
+        return result
+    except Exception as e:
+        return {"error": f"Scratch-dent prediction failed: {str(e)}"}
+
+
+@app.post("/tire_classification_local")
+async def tire_classification_local(image: UploadFile = File(...)):
+    ckpt_path = os.path.join("models", "tire_classification.pt")
+    if not os.path.exists(ckpt_path):
+        return {"error": "Local checkpoint not found. Train with trains/train_tire_classification.py first.", "expected": ckpt_path}
+    
+    image_bytes = await image.read()
+    try:
+        model_tc, tf_tc, class_to_idx_tc = load_tire_classification_ckpt(ckpt_path)
+        result = predict_tire_classification_bytes(model_tc, tf_tc, image_bytes, class_to_idx_tc)
+        return result
+    except Exception as e:
+        return {"error": f"Tire classification prediction failed: {str(e)}"}
+
+
 @app.post("/analyze")
 async def analyze(image: UploadFile = File(...)):
     image_bytes = await image.read()
@@ -126,36 +211,7 @@ async def analyze(image: UploadFile = File(...)):
 
     # Hugging Face inference removed; if no local damage model, is_damaged stays None
 
-    # 2.5) If damaged, run rust/scratch classification (local)
-    rust_scratch = None
-    if is_damaged:
-        try:
-            ckpt_path_rs = os.path.join("models", "rust_scratch.pt")
-            if os.path.exists(ckpt_path_rs):
-                img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=90)
-                buf.seek(0)
-                tmp_path = os.path.join("/tmp", f"rustscratch_{os.getpid()}.jpg")
-                with open(tmp_path, "wb") as f:
-                    f.write(buf.getvalue())
-                try:
-                    rust_scratch = predict_rust_scratch_image_path(ckpt_path_rs, tmp_path)
-                    # Normalize common typos in labels (e.g., 'dunt' -> 'dent')
-                    if isinstance(rust_scratch, dict) and "pred_label" in rust_scratch:
-                        lbl = str(rust_scratch.get("pred_label", ""))
-                        if "dunt" in lbl.lower():
-                            rust_scratch["raw_label"] = lbl
-                            rust_scratch["pred_label"] = "dent"
-                finally:
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
-            else:
-                rust_scratch = {"error": "Local checkpoint not found. Train with trains/train_rust_scratch.py first.", "expected": ckpt_path_rs}
-        except Exception as e:
-            rust_scratch = {"error": f"Rust/Scratch check failed: {str(e)}"}
+    # 2.5) Rust/scratch classification removed
 
     # 2.6) If damaged, run parts-level multiclass classifier (same as /damage_parts_local)
     damage_parts_local = None
@@ -198,70 +254,66 @@ async def analyze(image: UploadFile = File(...)):
                 dirty_result = {"error": "Local checkpoint not found. Train with train_dirty.py first.", "expected": ckpt_path_dirty}
         except Exception as e:
             dirty_result = {"error": f"Dirty check failed: {str(e)}"}
+
+
     return {
         "is_damaged": bool(is_damaged),
         "damage_source": damage_source,
         "damage_local": damage_local_result,
-        "rust_scratch": rust_scratch,
         "damage_parts_local": damage_parts_local,
         "dirty": dirty_result,
     }
 
-@app.post("/rust_scratch_local")
-async def rust_scratch_local(image: UploadFile = File(...)):
-    ckpt_path = os.path.join("models", "rust_scratch.pt")
-    if not os.path.exists(ckpt_path):
-        return {"error": "Local checkpoint not found. Train with trains/train_rust_scratch.py first.", "expected": ckpt_path}
-    image_bytes = await image.read()
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    buf.seek(0)
-    tmp_path = os.path.join("/tmp", f"rustscratch_{os.getpid()}.jpg")
-    with open(tmp_path, "wb") as f:
-        f.write(buf.getvalue())
-    try:
-        result = predict_rust_scratch_image_path(ckpt_path, tmp_path)
-        # Normalize common typos (e.g., 'dunt' -> 'dent')
-        if isinstance(result, dict) and "pred_label" in result:
-            lbl = str(result.get("pred_label", ""))
-            if "dunt" in lbl.lower():
-                result["raw_label"] = lbl
-                result["pred_label"] = "dent"
-    finally:
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-    return result
-
 
 @app.post("/analyze-comprehensive")
-async def analyze_comprehensive(image: UploadFile = File(...)):
+async def analyze_comprehensive(image: UploadFile = File(...), output_type: str = "structured"):
     """
     Comprehensive car analysis with LLM-generated reports for different stakeholders
+    
+    Args:
+        output_type: "structured" for detailed reports or "raw" for technical data only
     """
     # Get technical analysis first
     technical_analysis = await analyze(image)
     
-    # Generate comprehensive reports using LLM
-    llm_reports = llm_service.generate_comprehensive_report(technical_analysis)
-    
-    return {
-        "technical_analysis": technical_analysis,
-        "condition_score": llm_reports.get("condition_score", 0),
-        "reports": {
-            "driver": llm_reports.get("driver_report", ""),
-            "passenger": llm_reports.get("passenger_report", ""), 
-            "business": llm_reports.get("business_report", "")
-        },
-        "recommendations": llm_reports.get("recommendations", []),
-        "metadata": {
-            "analysis_timestamp": "2025-09-14",
-            "model_version": "v1.0",
-            "confidence_threshold": 0.5
+    if output_type == "raw":
+        # Return raw technical analysis without LLM processing
+        return {
+            "technical_analysis": technical_analysis,
+            "condition_score": 85,  # Default score for raw analysis
+            "reports": {
+                "driver": "Raw technical analysis - see technical_analysis for details",
+                "passenger": "Raw technical analysis - see technical_analysis for details", 
+                "business": "Raw technical analysis - see technical_analysis for details"
+            },
+            "recommendations": [],
+            "metadata": {
+                "analysis_timestamp": "2025-09-14",
+                "model_version": "v1.0",
+                "output_type": "raw",
+                "confidence_threshold": 0.5
+            }
         }
-    }
+    else:
+        # Generate comprehensive reports using LLM (structured output)
+        llm_reports = llm_service.generate_comprehensive_report(technical_analysis)
+        
+        return {
+            "technical_analysis": technical_analysis,
+            "condition_score": llm_reports.get("condition_score", 0),
+            "reports": {
+                "driver": llm_reports.get("driver_report", ""),
+                "passenger": llm_reports.get("passenger_report", ""), 
+                "business": llm_reports.get("business_report", "")
+            },
+            "recommendations": llm_reports.get("recommendations", []),
+            "metadata": {
+                "analysis_timestamp": "2025-09-14",
+                "model_version": "v1.0",
+                "output_type": "structured",
+                "confidence_threshold": 0.5
+            }
+        }
 
 
 

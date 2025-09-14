@@ -21,34 +21,6 @@ export const navigationItems: NavigationItem[] = [
     label: 'Демо',
     icon: '⚡',
     description: 'Интерактивный тест модели'
-  },
-  {
-    id: 'problem',
-    path: '/problem',
-    label: 'Проблема',
-    icon: '🎯',
-    description: 'Ценность решения'
-  },
-  {
-    id: 'process',
-    path: '/process',
-    label: 'Процесс',
-    icon: '⚙️',
-    description: 'Как это работает'
-  },
-  {
-    id: 'results',
-    path: '/results',
-    label: 'Результаты',
-    icon: '📊',
-    description: 'Метрики и точность'
-  },
-  {
-    id: 'roadmap',
-    path: '/roadmap',
-    label: 'Планы',
-    icon: '🚀',
-    description: 'Риски и развитие'
   }
 ];
 

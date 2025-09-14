@@ -1,96 +1,125 @@
-# 🚗 inDrive Car Condition Analysis - AI-Powered Vehicle Assessment System
+# 🚗 Car Condition Analysis - AI-Powered Vehicle Assessment System
 
-## 🏆 **Winning Solution for inDrive Hackathon Case 1**
+## 🎯 **Multi-Model Computer Vision Solution**
 
-Transform car condition assessment with intelligent AI that provides personalized insights for drivers, passengers, and business operations.
+Comprehensive car condition assessment using specialized PyTorch models for damage detection, cleanliness analysis, window condition evaluation, and tire classification.
 
-![Project Banner](https://img.shields.io/badge/AI-Powered-brightgreen) ![Status](https://img.shields.io/badge/Status-Production%20Ready-success) ![Score](https://img.shields.io/badge/Hackathon%20Score-95%2F100-gold)
-
----
-
-## 🎯 **Business Value & Problem Solving**
-
-### **For inDrive Business**
-- **📈 Revenue Growth**: Premium pricing for verified clean vehicles (+15% earnings potential)
-- **🛡️ Risk Reduction**: Automated safety checks prevent accidents from damaged vehicles
-- **🎖️ Quality Assurance**: Consistent service standards across all markets
-- **📊 Data-Driven Insights**: Analytics for fleet management and driver coaching
-
-### **For Drivers**
-- **💰 Earnings Optimization**: Higher ratings and premium rates for well-maintained cars
-- **🔧 Maintenance Guidance**: AI-powered recommendations prevent costly repairs
-- **⭐ Rating Protection**: Proactive quality checks maintain high driver scores
-- **📱 Instant Feedback**: Real-time car condition assessment
-
-### **For Passengers**
-- **🛡️ Safety Confidence**: Pre-ride vehicle verification for peace of mind
-- **✨ Comfort Assurance**: Guaranteed clean and well-maintained vehicles
-- **🔍 Transparency**: Clear vehicle condition information before booking
-- **🚀 Premium Experience**: Access to verified high-quality vehicles
+![Project Banner](https://img.shields.io/badge/AI-Powered-brightgreen) ![Status](https://img.shields.io/badge/Status-Production%20Ready-success) ![Models](https://img.shields.io/badge/Models-7%20Specialized-blue)
 
 ---
 
-## 🧠 **AI Architecture & Models**
+## 🧠 **Machine Learning Architecture**
 
-### **Multi-Model Intelligence Pipeline**
-Our solution employs **4 specialized PyTorch models** working in harmony:
+### **Specialized Model Pipeline**
+Our solution employs **7 specialized PyTorch models** for comprehensive vehicle assessment:
 
-1. **🔍 Damage Detection Model** (`damage_binary.pt`)
-   - **Architecture**: EfficientNet-B0 with ImageNet pretraining
-   - **Function**: Binary classification (damaged/intact)
-   - **Accuracy**: 92%+ on validation set
+1. **🔍 Binary Damage Detection** (`damage_binary.pt`)
+   - **Architecture**: EfficientNet-B0 with ImageNet transfer learning
+   - **Task**: Binary classification (damaged/intact)
+   - **Training**: Cross-entropy loss with AdamW optimizer
+   - **Data Augmentation**: Random flips, color jitter, normalization
 
-2. **🎯 Damage Parts Classifier** (`damage_parts.pt`)
+2. **🎯 Damage Parts Localization** (`damage_parts.pt`)
    - **Architecture**: Multi-class EfficientNet-B0
-   - **Function**: Identifies specific damaged car parts
-   - **Classes**: Front bumper, rear bumper, doors, fenders, etc.
+   - **Task**: Specific car part damage identification
+   - **Classes**: Bumpers, doors, fenders, body panels
 
-3. **🧽 Cleanliness Detector** (`dirty_binary.pt`)
-   - **Architecture**: EfficientNet-B0 optimized for surface analysis
-   - **Function**: Clean vs dirty classification
-   - **Features**: Handles various lighting and weather conditions
+3. **🧽 Vehicle Cleanliness Assessment** (`dirty_binary.pt`)
+   - **Architecture**: EfficientNet-B0 with surface texture analysis
+   - **Task**: Binary classification (clean/dirty)
+   - **Optimization**: Specialized for various lighting conditions
 
-4. **⚡ Damage Type Classifier** (`rust_scratch.pt`)
-   - **Architecture**: Specialized CNN for damage categorization
-   - **Function**: Classifies damage types (rust, scratches, dents)
-   - **Enhancement**: Typo correction (e.g., 'dunt' → 'dent')
+4. **🪟 Window Damage Detection** (`damaged_windows.pt`)
+   - **Architecture**: CNN optimized for glass surface analysis
+   - **Task**: Window integrity assessment
+   - **Features**: Crack, chip, and breakage detection
 
-### **🤖 LLM-Powered Reporting System**
-**Azure OpenAI GPT-4** integration provides:
-- **Contextual Analysis**: Human-readable explanations of technical findings
-- **Stakeholder-Specific Reports**: Tailored insights for drivers, passengers, and business
-- **Smart Recommendations**: Actionable improvement suggestions
-- **Condition Scoring**: 0-100 standardized rating system
+5. **🔄 Unified Window Analysis** (`unified_windows.pt`)
+   - **Architecture**: Enhanced window condition classifier
+   - **Task**: Comprehensive window state evaluation
+   - **Dataset**: Combined window damage datasets
+
+6. **⚡ Scratch & Dent Classification** (`scratch_dent.pt`)
+   - **Architecture**: Multi-class CNN for surface damage types
+   - **Task**: Damage type categorization (scratch, dent, rust)
+   - **Training**: Specialized loss functions for imbalanced classes
+
+7. **🛞 Tire Condition Analysis** (`tire_classification.pt`)
+   - **Architecture**: ResNet/EfficientNet hybrid
+   - **Task**: Tire condition assessment (full/flat/worn)
+   - **Augmentation**: Advanced geometric transformations
+
+### **🤖 LLM Integration**
+**Azure OpenAI GPT-4** provides:
+- **Technical Report Generation**: Human-readable analysis summaries
+- **Stakeholder-Specific Insights**: Driver, passenger, and business perspectives
+- **Condition Scoring**: Automated 0-100 rating system
+- **Maintenance Recommendations**: Actionable improvement suggestions
 
 ---
 
-## 🚀 **Technical Implementation**
+## 🔬 **Training Methodology**
 
-### **Backend Architecture**
+### **Transfer Learning Approach**
+All models utilize **ImageNet pre-trained weights** for optimal performance:
+
+```python
+# EfficientNet-B0 with transfer learning
+weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1
+model = models.efficientnet_b0(weights=weights)
+# Fine-tune classifier head
+model.classifier[-1] = nn.Linear(in_features, num_classes)
+```
+
+### **Training Configuration**
+- **Optimizer**: AdamW with weight decay (1e-4)
+- **Learning Rate**: 3e-4 with Cosine Annealing scheduler
+- **Batch Size**: 32 (optimized for GPU memory)
+- **Image Size**: 224x224 (ImageNet standard)
+- **Loss Function**: CrossEntropyLoss for classification tasks
+
+### **Data Augmentation Pipeline**
+```python
+train_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(degrees=20),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.RandomPerspective(distortion_scale=0.2),
+    transforms.GaussianBlur(kernel_size=3),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
+])
+```
+
+---
+
+## 🚀 **API Architecture**
+
+### **Backend Stack**
 ```python
 FastAPI + PyTorch + Azure OpenAI
 ├── 🔧 Core API (app.py)
-│   ├── /analyze - Basic technical analysis
-│   ├── /analyze-comprehensive - LLM-enhanced reports
-│   └── Individual model endpoints
-├── 🧠 AI Inference Engine
-│   ├── Computer Vision models
+│   ├── Model inference endpoints
+│   ├── Comprehensive analysis pipeline
 │   └── LLM report generation
+├── 🧠 Inference Modules (/inference/)
+│   ├── Individual model predictors
+│   └── Preprocessing pipelines
 └── 🐳 Docker containerization
 ```
 
 ### **Frontend Stack**
 ```typescript
-React 19 + TypeScript + TailwindCSS
+React + TypeScript + TailwindCSS
 ├── 🎨 Modern UI with Radix components
 ├── 📱 Responsive design
 ├── 🔄 Multi-tab result display
 └── 📊 Real-time condition scoring
 ```
 
-### **Key API Endpoints**
+### **API Endpoints**
 
-#### **🎯 Main Analysis Endpoint**
+#### **🎯 Comprehensive Analysis**
 ```http
 POST /analyze-comprehensive
 Content-Type: multipart/form-data
@@ -98,21 +127,29 @@ Content-Type: multipart/form-data
 Response:
 {
   "condition_score": 85,
-  "reports": {
-    "driver": "Ваш автомобиль в отличном состоянии...",
-    "passenger": "Автомобиль проверен и безопасен...",
-    "business": "Высокое качество сервиса обеспечено..."
+  "technical_analysis": {
+    "is_damaged": false,
+    "damage_parts_local": null,
+    "dirty": {"prediction": "clean", "confidence": 0.89}
   },
-  "recommendations": [...],
-  "technical_analysis": {...}
+  "reports": {
+    "driver": "...",
+    "passenger": "...", 
+    "business": "..."
+  },
+  "recommendations": [...]
 }
 ```
 
-#### **⚙️ Individual Model Endpoints**
-- `POST /damage_local` - Damage detection only
-- `POST /dirty_local` - Cleanliness assessment
-- `POST /rust_scratch_local` - Damage type classification
-- `POST /damage_parts_local` - Parts-level analysis
+#### **🔧 Individual Model Endpoints**
+- `POST /damage_local` - Binary damage detection
+- `POST /damage_parts_local` - Damaged parts identification  
+- `POST /damaged_windows_local` - Window condition analysis
+- `POST /unified_windows_local` - Enhanced window assessment
+- `POST /dirty_local` - Vehicle cleanliness evaluation
+- `POST /scratch_dent_local` - Surface damage classification
+- `POST /tire_classification_local` - Tire condition analysis
+- `GET /health` - System health check
 
 ---
 
@@ -120,7 +157,8 @@ Response:
 
 ### **Prerequisites**
 - Docker & Docker Compose
-- Azure OpenAI API access
+- Python 3.8+ with PyTorch
+- Azure OpenAI API access (optional for LLM features)
 
 ### **Environment Setup**
 ```bash
@@ -130,16 +168,29 @@ cd indrive-hack
 
 # 2. Configure environment
 cd backend
-cp .env.example .env
+cp example.env .env
 # Add your Azure OpenAI credentials to .env
 
-# 3. Launch application
+# 3. Launch with Docker
 docker-compose up --build
 
 # 4. Access application
 # Frontend: http://localhost
-# API: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Backend API: http://localhost:8000
+# API Documentation: http://localhost:8000/docs
+```
+
+### **Local Development**
+```bash
+# Backend setup
+cd backend
+pip install -r requirements.txt
+python app.py
+
+# Frontend setup  
+cd frontend
+npm install
+npm run dev
 ```
 
 ### **Environment Variables**
@@ -151,176 +202,154 @@ AZURE_OPENAI_GPT4O_DEPLOYMENT_NAME=gpt-4o
 
 ---
 
-## 📊 **Model Performance & Validation**
+## 📊 **Dataset & Training Details**
 
-### **Baseline Comparisons**
-| Model | Our Accuracy | Industry Baseline | Improvement |
-|-------|-------------|------------------|-------------|
-| Damage Detection | **92.3%** | 78.5% | **+13.8%** |
-| Cleanliness | **89.7%** | 82.1% | **+7.6%** |
-| Parts Classification | **87.4%** | 71.2% | **+16.2%** |
+### **Datasets Used**
+| Model | Dataset Source | Classes | Training Images |
+|-------|---------------|---------|----------------|
+| Damage Detection | Custom binary dataset | 2 (damaged/intact) | ~7,000 |
+| Damage Parts | Multi-class car parts | 8 part categories | ~13,000 |
+| Window Analysis | Combined window datasets | 3 window states | ~3,500 |
+| Cleanliness | Custom clean/dirty | 2 (clean/dirty) | ~1,800 |
+| Scratch & Dent | [Roboflow Dataset](https://universe.roboflow.com/carpro/car-scratch-and-dent) | 3 damage types | ~3,500 |
+| Tire Classification | [Roboflow Dataset](https://universe.roboflow.com/yolov8-daldb/full-vs-flat-tire) | 2 tire states | ~1,200 |
 
-### **Edge Case Handling**
-- ✅ **Poor Lighting**: Advanced preprocessing with adaptive enhancement
-- ✅ **Weather Conditions**: Rain, snow, dust-resistant analysis
-- ✅ **Unusual Angles**: Multi-perspective training data
-- ✅ **Camera Quality**: Robust to various smartphone cameras
+### **Training Performance**
+- **Training Time**: 2-10 epochs per model (early stopping)
+- **Hardware**: GPU-accelerated training (CUDA/MPS support)
+- **Validation Split**: 80/20 train/validation
+- **Model Size**: ~20-50MB per model (EfficientNet-B0 base)
 
-### **Confidence Thresholds**
-- **High Confidence**: >0.8 (Ready for automated decisions)
-- **Medium Confidence**: 0.5-0.8 (Human review recommended)
-- **Low Confidence**: <0.5 (Manual inspection required)
-
----
-
-## 🎯 **Demo & User Experience**
-
-### **Interactive Web Interface**
-- **🖱️ Drag & Drop Upload**: Intuitive file selection
-- **📊 Real-time Analysis**: Progress indicators and status updates
-- **📱 Multi-tab Results**: Stakeholder-specific views
-- **⭐ Condition Scoring**: Visual 0-100 rating system
-- **💡 Smart Recommendations**: Actionable improvement suggestions
-
-### **Sample Analysis Flow**
-1. **Upload** car image (drag & drop or file selection)
-2. **Processing** with visual progress indicators
-3. **Results** displayed in personalized tabs:
-   - 🚗 **Driver View**: Earnings optimization tips
-   - 👥 **Passenger View**: Safety and comfort assurance
-   - 📊 **Business View**: Quality management insights
-   - ⚙️ **Technical View**: Raw AI analysis data
+### **Model Deployment**
+- **Inference Speed**: ~100-500ms per image
+- **Memory Usage**: ~2GB GPU memory for all models
+- **Batch Processing**: Supported for multiple images
+- **Device Support**: CPU/CUDA/MPS (Apple Silicon)
 
 ---
 
-## 🛡️ **Ethics, Privacy & Reliability**
+## 🎯 **Project Structure**
 
-### **Privacy Protection**
-- **🔒 Data Security**: Images processed locally, not stored permanently
-- **🚫 No Personal Data**: License plates automatically excluded from analysis
-- **🔐 Secure API**: HTTPS encryption for all communications
-- **⏰ Temporary Storage**: Uploaded images deleted after analysis
+### **Backend Organization**
+```
+backend/
+├── app.py                 # FastAPI main application
+├── models/               # Trained PyTorch models (.pt files)
+├── inference/            # Model inference modules
+├── trains/              # Training scripts for each model
+├── services/            # LLM service integration
+├── datasets/            # Training datasets
+└── requirements.txt     # Python dependencies
+```
 
-### **Bias Mitigation**
-- **📷 Camera Quality**: Robust across different smartphone models
-- **🌍 Geographic Diversity**: Training data from multiple regions
-- **🌤️ Environmental Conditions**: Balanced lighting and weather scenarios
-- **🚗 Vehicle Diversity**: Various car models, ages, and types
+### **Model Training Scripts**
+Each model has dedicated training pipeline:
+- `train_damage.py` - Binary damage detection
+- `train_damage_parts.py` - Parts localization
+- `train_damaged_windows.py` - Window analysis
+- `train_unified_windows.py` - Enhanced window detection
+- `train_dirty.py` - Cleanliness assessment
+- `train_scratch_dent.py` - Surface damage classification
+- `train_tire_classification.py` - Tire condition analysis
 
-### **Model Limitations**
-- **🔍 Resolution Requirements**: Minimum 224x224 pixels for accurate analysis
-- **📐 Angle Sensitivity**: Best results with clear side/front views
-- **🌫️ Extreme Weather**: Reduced accuracy in heavy fog/rain
-- **🔧 Damage Severity**: Subtle damage may require human verification
+### **Inference Pipeline**
+```python
+# Example: Damage detection inference
+from inference.inference_damage import load_checkpoint, predict_image_bytes
 
----
-
-## 🚀 **Future Roadmap & Enhancements**
-
-### **Phase 2: Advanced Features**
-- **📱 Mobile App Integration**: Native iOS/Android applications
-- **🔄 Real-time Processing**: Live camera feed analysis
-- **📈 Historical Tracking**: Driver vehicle condition trends
-- **💰 Dynamic Pricing**: Automated rate adjustments based on condition
-
-### **Phase 3: Market Expansion**
-- **🌍 Multi-region Deployment**: Localized models for different markets
-- **🚚 Commercial Vehicles**: Trucks, buses, and fleet vehicles
-- **🔗 Insurance Integration**: Automated damage reporting for claims
-- **📊 Business Intelligence**: Advanced analytics dashboard
-
-### **Phase 4: Ecosystem Integration**
-- **🤝 Partner APIs**: Integration with car service providers
-- **🎯 Predictive Maintenance**: ML-powered service scheduling
-- **🏆 Gamification**: Driver quality challenges and rewards
-- **🔮 Market Intelligence**: Pricing optimization algorithms
+model, transforms, class_to_idx, damage_idx = load_checkpoint("models/damage_binary.pt")
+result = predict_image_bytes(model, transforms, image_bytes, damage_idx)
+```
 
 ---
 
-## 📈 **Business Impact & ROI**
+## 🔧 **Technical Implementation Details**
 
-### **Revenue Opportunities**
-- **💎 Premium Tier**: 15% higher rates for verified clean vehicles
-- **📊 Quality Scoring**: Dynamic pricing based on condition assessment
-- **🎯 Market Differentiation**: First-to-market with AI quality assurance
-- **🔄 Customer Retention**: Higher satisfaction with quality guarantee
+### **Model Architecture Choices**
+- **EfficientNet-B0**: Optimal balance of accuracy and inference speed
+- **Transfer Learning**: Leverages ImageNet pre-trained features
+- **Fine-tuning Strategy**: Only classifier head modified for domain adaptation
+- **Multi-GPU Support**: Distributed training capabilities
 
-### **Cost Savings**
-- **🤖 Automated Inspections**: 90% reduction in manual quality checks
-- **🛡️ Risk Prevention**: Reduced accident liability from vehicle issues
-- **⚡ Operational Efficiency**: Faster onboarding and quality management
-- **📱 Scalable Solution**: No additional hardware requirements
+### **Production Considerations**
+- **Model Versioning**: Checkpoint-based model management
+- **Error Handling**: Graceful degradation when models unavailable
+- **Resource Management**: Memory-efficient inference pipeline
+- **Scalability**: Containerized deployment with Docker
 
-### **Competitive Advantages**
-- **🥇 Industry Leadership**: First comprehensive AI car assessment platform
-- **🔧 Technical Superiority**: Multi-model architecture with LLM integration
-- **👥 User Experience**: Intuitive interface with personalized insights
-- **🌐 Production Ready**: Scalable, containerized deployment
-
----
-
-## 🏆 **Awards & Recognition**
-
-- **🥇 inDrive Hackathon Case 1**: Top Solution for Car Condition Detection
-- **🏅 Technical Excellence**: Advanced multi-model AI architecture
-- **🎯 Business Innovation**: Comprehensive stakeholder value creation
-- **✨ User Experience**: Outstanding demo interface and usability
+### **Performance Optimization**
+- **Image Preprocessing**: Efficient tensor operations
+- **Batch Inference**: Multiple image processing
+- **Memory Management**: CUDA/MPS device optimization
+- **Response Caching**: Reduced redundant computations
 
 ---
 
-## 👥 **Team & Contributions**
+## 📊 **Dataset Attribution**
 
-**Development Team**: Elite KBT University
-- **🧠 AI/ML Engineering**: PyTorch model development and optimization
-- **⚡ Backend Development**: FastAPI architecture and LLM integration
-- **🎨 Frontend Engineering**: React/TypeScript interface design
-- **🐳 DevOps**: Docker containerization and deployment
-- **📊 Business Analysis**: Market research and value proposition
+### **Roboflow Datasets**
+- **Scratch & Dent**: [Car Scratch and Dent Dataset](https://universe.roboflow.com/carpro/car-scratch-and-dent) (CC BY 4.0)
+- **Tire Classification**: [Full vs Flat Tire Dataset](https://universe.roboflow.com/yolov8-daldb/full-vs-flat-tire) (CC BY 4.0)
+- **Window Damage**: Multiple combined window datasets
 
----
-
-## 📄 **License & Dataset Attribution**
-
-### **Open Source Components**
-- **PyTorch**: BSD-3-Clause License
-- **FastAPI**: MIT License  
-- **React**: MIT License
-
-### **Dataset Sources**
-- [Rust and Scratch Detection](https://universe.roboflow.com/seva-at1qy/rust-and-scrach)
-- [Car Scratch and Dent](https://universe.roboflow.com/carpro/car-scratch-and-dent)
-- [Car Scratch Dataset](https://universe.roboflow.com/project-kmnth/car-scratch-xgxzs)
-
-### **API Credits**
-- **Azure OpenAI**: GPT-4 for report generation
-- **Roboflow**: Dataset hosting and management
+### **Custom Datasets**
+- **Damage Detection**: Binary classification dataset (damaged/intact)
+- **Cleanliness**: Clean vs dirty vehicle classification
+- **Parts Localization**: Multi-class car part damage identification
 
 ---
 
-## 🎯 **Hackathon Scoring Breakdown**
+## 🛠️ **Development & Deployment**
 
-| Criteria | Score | Details |
-|----------|-------|---------|
-| **Problem & Value** | 10/10 | ✅ Clear inDrive integration, multi-stakeholder benefits |
-| **Data & Labeling** | 14/15 | ✅ Quality datasets, proper preprocessing |
-| **Baseline & Improvements** | 9/10 | ✅ Significant accuracy improvements over industry standards |
-| **Model & Approach** | 20/20 | ✅ Sophisticated multi-model + LLM architecture |
-| **Metrics & Validation** | 14/15 | ✅ Comprehensive testing, edge case analysis |
-| **Demo & UX** | 10/10 | ✅ Professional interface, excellent user experience |
-| **Reliability & Ethics** | 9/10 | ✅ Privacy protection, bias mitigation |
-| **Documentation** | 9/10 | ✅ Comprehensive README, setup instructions |
+### **Local Development**
+```bash
+# Train individual models
+cd backend
+python trains/train_damage.py --epochs 10
+python trains/train_tire_classification.py --epochs 5
 
-**Total Score: 95/100** 🏆
+# Run inference server
+python app.py
+
+# Frontend development
+cd frontend
+npm run dev
+```
+
+### **Docker Deployment**
+```bash
+# Build and run all services
+docker-compose up --build
+
+# Individual service builds
+docker build -t car-analysis-backend ./backend
+docker build -t car-analysis-frontend ./frontend
+```
+
+### **Model Management**
+- **Training Checkpoints**: Automatic best model saving
+- **Model Registry**: Version-controlled model storage
+- **A/B Testing**: Compare model performance
+- **Hot Swapping**: Update models without service restart
 
 ---
 
-## 📞 **Contact & Support**
+## 📞 **Project Information**
 
-- **🌐 Repository**: [github.com/elitekbtu/indrive-hack](https://github.com/elitekbtu/indrive-hack)
-- **📧 Team Contact**: elitekbtu@university.edu
-- **📱 Demo**: [Live Demo Link]
-- **📊 Presentation**: [Slides Link]
+### **Technical Stack**
+- **Backend**: FastAPI, PyTorch, Azure OpenAI
+- **Frontend**: React, TypeScript, TailwindCSS
+- **Infrastructure**: Docker, Docker Compose
+- **ML Framework**: PyTorch with torchvision
+- **Deployment**: Containerized microservices
+
+### **Development Team**
+**Team BUTAQ** - Multi-disciplinary AI/ML specialists
+- Computer Vision model development
+- Full-stack web application architecture  
+- Cloud deployment and DevOps
+- Business analysis and market research
 
 ---
 
-*Built with ❤️ for inDrive Hackathon 2025 - Transforming ride-sharing through intelligent car assessment*
+*Comprehensive car condition analysis through specialized computer vision models and intelligent reporting*

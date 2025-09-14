@@ -12,7 +12,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/analyze': 'http://localhost:8000',
+      '/analyze': 'http://209.38.193.80',
     },
   },
 })

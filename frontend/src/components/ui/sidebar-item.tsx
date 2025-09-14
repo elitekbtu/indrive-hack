@@ -20,10 +20,10 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
     <button
       onClick={onClick}
       className={cn(
-        'group relative w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all duration-300 hover:scale-105',
+        'group relative w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 hover:scale-[1.02]',
         isActive 
-          ? 'bg-indrive-green-600/20 text-indrive-green-300 border border-indrive-green-600/40 shadow-lg shadow-indrive-green-600/10' 
-          : 'text-indrive-green-400 hover:bg-indrive-green-600/10 hover:text-indrive-green-300 border border-transparent',
+          ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm' 
+          : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent',
         isCollapsed ? 'justify-center px-2' : 'justify-start'
       )}
     >
@@ -44,15 +44,15 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
 
       {/* Active indicator */}
       {isActive && (
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-indrive-green-400 to-indrive-green-600 rounded-l-full" />
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full shadow-sm" />
       )}
 
       {/* Tooltip for collapsed state */}
       {isCollapsed && (
-        <div className="absolute left-full ml-2 px-2 py-1 bg-indrive-black-800 border border-indrive-green-600/30 rounded-md text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-          {item.label}
+        <div className="absolute left-full ml-3 px-3 py-2 bg-background border border-border rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+          <div className="font-medium">{item.label}</div>
           {item.description && (
-            <div className="text-indrive-green-400 text-xs">{item.description}</div>
+            <div className="text-muted-foreground text-xs mt-1">{item.description}</div>
           )}
         </div>
       )}
