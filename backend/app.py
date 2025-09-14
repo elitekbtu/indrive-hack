@@ -24,7 +24,7 @@ _ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:8080",
-    "http://localhost"
+    "http://localhost",
     "http://127.0.0.1:80",
     "http://34.133.26.155",
     "34.133.26.155",

@@ -2,7 +2,7 @@ services:
   api:
     build: ./backend
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     working_dir: /app
     environment:
       - DATABASE_URL=postgresql://decentra_user:decentra_password@postgres:5432/decentra_database
