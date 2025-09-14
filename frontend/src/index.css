@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 13% 7%;
+    --foreground: 140 51% 83%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 355 7% 97%;
+    --secondary: 220 13% 15%;
+    --secondary-foreground: 140 51% 83%;
+    --muted: 220 13% 15%;
+    --muted-foreground: 217 10% 64%;
+    --accent: 220 13% 15%;
+    --accent-foreground: 140 51% 83%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 355 7% 97%;
+    --border: 217 19% 27%;
+    --input: 217 19% 27%;
+    --ring: 142 76% 36%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-gray-800;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-indrive-black-950 via-indrive-black-900 to-indrive-black-950 text-indrive-green-100;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-indrive-green-400 to-indrive-green-600 bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-mesh {
+    background: radial-gradient(ellipse at top left, rgba(34, 197, 94, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom right, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+                linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%);
+  }
+}

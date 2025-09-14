@@ -1,0 +1,11 @@
+fastapi==0.116.1
+uvicorn==0.35.0
+pillow==11.3.0
+transformers==4.56.1
+torch==2.8.0
+torchvision==0.23.0
+numpy==2.0.2
+python-multipart==0.0.20
+pandas==2.3.2
+inference-sdk==0.55.0
+roboflow==1.2.9

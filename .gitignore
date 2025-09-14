@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# OS
+.DS_Store
+
+# Virtual envs
+venv/
+.env
+
+# Logs
+*.log
+uvicorn_*.log
+
+# Data and large artifacts
+backend/datasets/
+# Explicit dataset paths
+backend/data/damage-anujms/data1a/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Caches
+.cache/

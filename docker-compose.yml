@@ -1,0 +1,40 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgresql://decentra_user:decentra_password@postgres:5432/decentra_database
+    volumes:
+      - ./backend:/app
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+    restart: unless-stopped
+    depends_on:
+      - postgres
+  nginx:
+    build: ./frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - api
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=decentra_user
+      - POSTGRES_PASSWORD=decentra_password
+      - POSTGRES_DB=decentra_database
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    
