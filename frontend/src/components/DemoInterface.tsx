@@ -4,13 +4,22 @@ import { Upload, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-type AnalysisJson = any;
+interface AnalysisResult {
+  is_damaged?: boolean;
+  damage_source?: string;
+  damage_local?: unknown;
+  rust_scratch?: unknown;
+  damage_parts_local?: unknown;
+  dirty?: unknown;
+  error?: string;
+  details?: string;
+}
 
 export default function DemoInterface() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisJson | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -37,7 +46,7 @@ export default function DemoInterface() {
       setAnalysisResult(null);
       const form = new FormData();
       form.append('image', selectedFile);
-      const res = await fetch('/analyze/', {
+      const res = await fetch('/analyze', {
         method: 'POST',
         body: form,
       });
