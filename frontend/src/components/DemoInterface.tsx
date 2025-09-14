@@ -15,11 +15,51 @@ interface AnalysisResult {
   details?: string;
 }
 
+interface EndpointOption {
+  value: string;
+  label: string;
+  description: string;
+}
+
 export default function DemoInterface() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('analyze');
+
+  const endpointOptions: EndpointOption[] = [
+    {
+      value: 'analyze',
+      label: 'Comprehensive Analysis',
+      description: 'Full analysis with damage detection, parts localization, and type classification'
+    },
+    {
+      value: 'analyze-comprehensive',
+      label: 'LLM-Powered Analysis',
+      description: 'Advanced analysis with AI-generated reports for drivers, passengers, and business'
+    },
+    {
+      value: 'damage_local',
+      label: 'Damage Detection',
+      description: 'Binary classification: damaged vs intact'
+    },
+    {
+      value: 'dirty_local',
+      label: 'Cleanliness Check',
+      description: 'Detect if the car is clean or dirty'
+    },
+    {
+      value: 'rust_scratch_local',
+      label: 'Damage Type Classification',
+      description: 'Classify damage type: rust, scratch, dent, etc.'
+    },
+    {
+      value: 'damage_parts_local',
+      label: 'Damage Parts Localization',
+      description: 'Identify which specific part of the car is damaged'
+    }
+  ];
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -46,7 +86,7 @@ export default function DemoInterface() {
       setAnalysisResult(null);
       const form = new FormData();
       form.append('image', selectedFile);
-      const res = await fetch('/analyze', {
+      const res = await fetch(`/${selectedEndpoint}`, {
         method: 'POST',
         body: form,
       });
@@ -83,6 +123,45 @@ export default function DemoInterface() {
             Загрузите фотографию автомобиля и получите мгновенный анализ его состояния
           </p>
         </div>
+
+        {/* Endpoint Selector */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Выберите тип анализа</CardTitle>
+            <CardDescription>
+              Выберите нужный тип анализа для вашего изображения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {endpointOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedEndpoint === option.value
+                        ? 'border-indrive-green-400 bg-indrive-green-950/30'
+                        : 'border-indrive-green-700 hover:border-indrive-green-600'
+                    }`}
+                    onClick={() => setSelectedEndpoint(option.value)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-indrive-green-200">
+                        {option.label}
+                      </h3>
+                      {selectedEndpoint === option.value && (
+                        <div className="w-3 h-3 rounded-full bg-indrive-green-400"></div>
+                      )}
+                    </div>
+                    <p className="text-sm text-indrive-green-400">
+                      {option.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
           {/* Upload Area */}
@@ -143,7 +222,7 @@ export default function DemoInterface() {
                       className="w-full"
                       size="lg"
                     >
-                      Анализировать состояние
+                      {endpointOptions.find(opt => opt.value === selectedEndpoint)?.label || 'Анализировать состояние'}
                     </Button>
                   )}
                   
@@ -176,7 +255,7 @@ export default function DemoInterface() {
             <CardHeader>
               <CardTitle>Результаты анализа</CardTitle>
               <CardDescription>
-                Сырые результаты от POST /analyze
+                Результаты от POST /{selectedEndpoint}
               </CardDescription>
             </CardHeader>
             <CardContent>
