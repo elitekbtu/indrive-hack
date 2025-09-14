@@ -12,6 +12,7 @@ from inference.inference_damage_parts import (
     load_checkpoint as load_damage_parts_ckpt,
     predict_image_bytes as predict_damage_parts_bytes,
 )
+from services.llm_service import llm_service
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -233,6 +234,34 @@ async def rust_scratch_local(image: UploadFile = File(...)):
         except Exception:
             pass
     return result
+
+
+@app.post("/analyze-comprehensive")
+async def analyze_comprehensive(image: UploadFile = File(...)):
+    """
+    Comprehensive car analysis with LLM-generated reports for different stakeholders
+    """
+    # Get technical analysis first
+    technical_analysis = await analyze(image)
+    
+    # Generate comprehensive reports using LLM
+    llm_reports = llm_service.generate_comprehensive_report(technical_analysis)
+    
+    return {
+        "technical_analysis": technical_analysis,
+        "condition_score": llm_reports.get("condition_score", 0),
+        "reports": {
+            "driver": llm_reports.get("driver_report", ""),
+            "passenger": llm_reports.get("passenger_report", ""), 
+            "business": llm_reports.get("business_report", "")
+        },
+        "recommendations": llm_reports.get("recommendations", []),
+        "metadata": {
+            "analysis_timestamp": "2025-09-14",
+            "model_version": "v1.0",
+            "confidence_threshold": 0.5
+        }
+    }
 
 
 

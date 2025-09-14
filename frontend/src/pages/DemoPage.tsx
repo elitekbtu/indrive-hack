@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import DemoInterface from '@/components/DemoInterface';
+import EnhancedDemoInterface from '@/components/EnhancedDemoInterface';
 
 const DemoPage = () => {
   const navigate = useNavigate();
@@ -35,7 +35,7 @@ const DemoPage = () => {
       </div>
 
       {/* Demo Interface */}
-      <DemoInterface />
+      <EnhancedDemoInterface />
 
       {/* Additional Info */}
       <section className="py-16 px-6">

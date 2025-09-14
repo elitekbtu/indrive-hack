@@ -1,0 +1,594 @@
+"""
+LLM Service for generating comprehensive car condition reports
+using Azure OpenAI GPT-4 to transform technical analysis into business insights
+"""
+
+import os
+import json
+from typing import Dict, Any
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+class CarAnalysisLLMService:
+    def __init__(self):
+        try:
+            self.client = AzureOpenAI(
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                api_version="2024-02-15-preview",
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+            )
+            self.deployment_name = os.getenv("AZURE_OPENAI_GPT4O_DEPLOYMENT_NAME", "gpt-4o")
+            self.available = True
+        except Exception as e:
+            print(f"Warning: LLM service initialization failed: {e}")
+            print("LLM features will be disabled, but core analysis will work")
+            self.client = None
+            self.deployment_name = None
+            self.available = False
+    
+    def generate_comprehensive_report(self, technical_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate comprehensive reports for different stakeholders based on technical analysis
+        """
+        # Calculate condition score first (always works)
+        condition_score = self._calculate_condition_score(technical_analysis)
+        
+        if not self.available or not self.client:
+            # Fallback when LLM is not available
+            return {
+                "condition_score": condition_score,
+                "driver_report": self._generate_fallback_driver_report(technical_analysis),
+                "passenger_report": self._generate_fallback_passenger_report(technical_analysis),
+                "business_report": self._generate_fallback_business_report(technical_analysis),
+                "recommendations": self._generate_fallback_recommendations(technical_analysis, condition_score)
+            }
+        
+        try:
+            # Prepare context for LLM
+            analysis_context = self._prepare_analysis_context(technical_analysis)
+            
+            # Generate reports for different stakeholders
+            driver_report = self._generate_driver_report(analysis_context)
+            passenger_report = self._generate_passenger_report(analysis_context)
+            business_report = self._generate_business_report(analysis_context)
+            
+            return {
+                "condition_score": condition_score,
+                "driver_report": driver_report,
+                "passenger_report": passenger_report,
+                "business_report": business_report,
+                "recommendations": self._generate_recommendations(analysis_context, condition_score)
+            }
+        
+        except Exception as e:
+            # Fallback on error
+            return {
+                "error": f"LLM service error: {str(e)}",
+                "condition_score": condition_score,
+                "driver_report": self._generate_fallback_driver_report(technical_analysis),
+                "passenger_report": self._generate_fallback_passenger_report(technical_analysis),
+                "business_report": self._generate_fallback_business_report(technical_analysis),
+                "recommendations": self._generate_fallback_recommendations(technical_analysis, condition_score)
+            }
+    
+    def _prepare_analysis_context(self, analysis: Dict[str, Any]) -> str:
+        """Prepare comprehensive structured context for LLM analysis"""
+        is_damaged = analysis.get("is_damaged", False)
+        damage_confidence = 0
+        damage_details = ""
+        cleanliness_details = ""
+        
+        # Detailed damage analysis
+        if is_damaged:
+            damage_local = analysis.get("damage_local", {})
+            damage_confidence = damage_local.get("damage_prob", 0)
+            damage_details += f"ПОВРЕЖДЕНИЯ ОБНАРУЖЕНЫ с уверенностью {damage_confidence:.1%}\n"
+            
+            # Specific damage location analysis
+            damage_parts = analysis.get("damage_parts_local", {})
+            if damage_parts and "pred_label" in damage_parts:
+                part_label = damage_parts["pred_label"]
+                part_confidence = damage_parts.get("pred_score", 0)
+                damage_details += f"Поврежденная часть: {part_label} (уверенность: {part_confidence:.1%})\n"
+                
+                # Translate technical labels to user-friendly descriptions
+                part_translations = {
+                    "doorouter-dent": "Внешняя дверь - вмятина",
+                    "bumper-scratch": "Бампер - царапина", 
+                    "hood-dent": "Капот - вмятина",
+                    "fender-scratch": "Крыло - царапина"
+                }
+                friendly_part = part_translations.get(part_label, part_label)
+                damage_details += f"Описание: {friendly_part}\n"
+            
+            # Damage type analysis
+            rust_scratch = analysis.get("rust_scratch", {})
+            if rust_scratch and "pred_label" in rust_scratch:
+                damage_type = rust_scratch["pred_label"]
+                type_confidence = rust_scratch.get("pred_score", 0)
+                if damage_type != "car":  # Filter out generic "car" predictions
+                    damage_details += f"Тип повреждения: {damage_type} (уверенность: {type_confidence:.1%})\n"
+        else:
+            damage_details = "ПОВРЕЖДЕНИЯ НЕ ОБНАРУЖЕНЫ - автомобиль в целом состоянии\n"
+        
+        # Cleanliness analysis
+        dirty_result = analysis.get("dirty")
+        if dirty_result:
+            clean_prob = dirty_result.get("clean_prob", 0)
+            dirty_prob = dirty_result.get("dirty_prob", 0)
+            
+            if dirty_prob > clean_prob:
+                cleanliness_details = f"ЧИСТОТА: Автомобиль загрязнен (уверенность: {dirty_prob:.1%})\n"
+                cleanliness_details += f"Рекомендуется чистка для улучшения впечатления пассажиров\n"
+            else:
+                cleanliness_details = f"ЧИСТОТА: Автомобиль чистый (уверенность: {clean_prob:.1%})\n"
+                cleanliness_details += f"Хорошее состояние чистоты способствует высоким рейтингам\n"
+        elif not is_damaged:
+            cleanliness_details = "ЧИСТОТА: Анализ чистоты доступен для неповрежденных автомобилей\n"
+        
+        # Model confidence summary
+        confidence_summary = ""
+        if is_damaged and damage_confidence > 0.9:
+            confidence_summary = "ВЫСОКАЯ УВЕРЕННОСТЬ МОДЕЛИ - результаты очень надежны"
+        elif is_damaged and damage_confidence > 0.7:
+            confidence_summary = "СРЕДНЯЯ УВЕРЕННОСТЬ МОДЕЛИ - результаты надежны"
+        elif is_damaged:
+            confidence_summary = "НИЗКАЯ УВЕРЕННОСТЬ МОДЕЛИ - рекомендуется дополнительная проверка"
+        else:
+            confidence_summary = "АВТОМОБИЛЬ В ХОРОШЕМ СОСТОЯНИИ"
+        
+        return f"""
+РЕЗУЛЬТАТЫ AI-АНАЛИЗА АВТОМОБИЛЯ:
+
+{damage_details}
+
+{cleanliness_details}
+
+ОБЩАЯ ОЦЕНКА: {confidence_summary}
+
+ТЕХНИЧЕСКАЯ ИНФОРМАЦИЯ:
+- Источник анализа: {analysis.get('damage_source', 'local')} модели
+- Использованы 4 специализированные AI-модели
+- Анализ проведен с использованием EfficientNet-B0 архитектуры
+"""
+    
+    def _generate_driver_report(self, context: str) -> str:
+        """Generate empowering report for driver rating optimization"""
+        prompt = f"""
+        Ты - AI-помощник водителя inDrive, который помогает УВЕЛИЧИТЬ ЗАРАБОТОК через качество автомобиля.
+
+        {context}
+
+        Создай мотивирующий отчет для водителя в стиле "личный консультант по заработку":
+
+        1. ВЛИЯНИЕ НА ЗАРАБОТОК (обязательно):
+        - Если отличное состояние: "💰 Ваш автомобиль поможет получать на 15-20% больше заказов!"
+        - Если есть проблемы: "⚠️ Текущее состояние может снизить ваши заработки на X%"
+
+        2. КОНКРЕТНЫЕ ДЕЙСТВИЯ:
+        - Если грязный: "🧽 Быстрая мойка поможет сохранить 5-звездочный рейтинг"
+        - Если повреждения: "🔧 Устранение повреждений защитит от ложных претензий"
+        - Если все хорошо: "✨ Продолжайте поддерживать качество - пассажиры это ценят!"
+
+        3. СИСТЕМА МОТИВАЦИИ:
+        - Связь качества авто с рейтингом водителя
+        - Влияние на количество заказов
+        - Защита от претензий
+
+        Тон: дружелюбный наставник, фокус на деньгах и успехе.
+        Формат: push-уведомление для водителя.
+        Объем: до 120 слов.
+        """
+        
+        response = self.client.chat.completions.create(
+            model=self.deployment_name,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content.strip()
+    
+    def _generate_passenger_report(self, context: str) -> str:
+        """Generate trust-building report for passenger safety and comfort"""
+        prompt = f"""
+        Ты - AI-система безопасности inDrive. Создай краткий, но убедительный отчет для ПАССАЖИРА перед поездкой.
+
+        {context}
+
+        Создай отчет в стиле "Verified by inDrive AI", который включает:
+
+        1. СТАТУС БЕЗОПАСНОСТИ (одна строка):
+        - Если нет повреждений: "✅ Автомобиль проверен и безопасен для поездки"
+        - Если есть незначительные повреждения: "⚠️ Обнаружены незначительные повреждения. Безопасность не нарушена"
+        - Если серьезные повреждения: "🔍 Требуется дополнительная проверка автомобиля"
+
+        2. КРАТКОЕ ОБЪЯСНЕНИЕ (1-2 предложения о том, что проверено)
+
+        3. БАДЖ ДОВЕРИЯ (если подходит):
+        - "Verified Clean & Intact" 
+        - "Minor Issues Disclosed"
+        - "Safety Verified"
+
+        Тон: профессиональный, заботливый, вызывающий доверие.
+        Формат: как уведомление в приложении для пассажира.
+        Объем: до 80 слов.
+        """
+        
+        response = self.client.chat.completions.create(
+            model=self.deployment_name,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.3
+        )
+        
+        return response.choices[0].message.content.strip()
+    
+    def _generate_business_report(self, context: str) -> str:
+        """Generate strategic business intelligence for inDrive operations"""
+        prompt = f"""
+        Ты - AI-аналитик качества для руководства inDrive. Создай стратегический отчет для МАСШТАБИРОВАНИЯ БИЗНЕСА.
+
+        {context}
+
+        Создай бизнес-отчет в стиле "Executive Dashboard":
+
+        1. ОПЕРАЦИОННЫЕ МЕТРИКИ:
+        - Автоматизация: "Заменяет X часов ручных проверок"
+        - Масштаб: "Обрабатывает Y автомобилей в день"
+        - Эффективность: "Снижает операционные расходы на Z%"
+
+        2. КАЧЕСТВО ФЛОТА:
+        - Если высокое качество: "📈 Автомобиль соответствует премиум-стандартам inDrive"
+        - Если проблемы: "⚠️ Требуется вмешательство для поддержания стандартов"
+        - Риск-оценка: "Низкий/Средний/Высокий риск для репутации"
+
+        3. СТРАТЕГИЧЕСКИЕ ДЕЙСТВИЯ:
+        - Автоматические флаги для проблемных автомобилей
+        - Создание "Vehicle Quality Score" для всего флота
+        - Снижение потребности в ручных проверках
+        - Предотвращение жалоб пассажиров
+
+        4. ROI IMPACT:
+        - Влияние на удержание пассажиров
+        - Снижение страховых рисков
+        - Автоматизация Quality Assurance
+
+        Тон: аналитический, стратегический, ориентированный на ROI.
+        Формат: сводка для C-level руководства.
+        Объем: до 150 слов.
+        """
+        
+        response = self.client.chat.completions.create(
+            model=self.deployment_name,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=350,
+            temperature=0.3
+        )
+        
+        return response.choices[0].message.content.strip()
+    
+    def _generate_recommendations(self, context: str, score: int) -> list:
+        """Generate highly specific, actionable recommendations based on detailed analysis"""
+        prompt = f"""
+        На основе детального AI-анализа автомобиля (оценка {score}/100) создай конкретные, actionable рекомендации.
+
+        {context}
+
+        Создай JSON массив рекомендаций, каждая включает:
+        - "action": конкретное действие (например, "Устранить вмятину на внешней двери")
+        - "impact": влияние на бизнес (например, "Повысит рейтинг водителя на 0.2-0.3 балла")  
+        - "priority": высокий/средний/низкий (основан на confidence и влиянии на безопасность)
+        - "cost_estimate": примерная стоимость ("50-100$" или "бесплатно")
+        - "time_estimate": время выполнения ("30 минут", "1-2 дня")
+
+        ПРАВИЛА:
+        1. Если confidence > 90% - priority = "высокий"
+        2. Если есть damage - всегда включай repair recommendations
+        3. Если dirty - включай cleaning recommendations
+        4. Всегда добавляй профилактические рекомендации
+        5. Максимум 4 рекомендации
+
+        Формат: строгий JSON массив, без дополнительного текста.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.deployment_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=500,
+                temperature=0.4
+            )
+            
+            recommendations_text = response.choices[0].message.content.strip()
+            # Clean the response to extract JSON
+            if "```json" in recommendations_text:
+                recommendations_text = recommendations_text.split("```json")[1].split("```")[0]
+            elif "```" in recommendations_text:
+                recommendations_text = recommendations_text.split("```")[1]
+            
+            try:
+                return json.loads(recommendations_text)
+            except:
+                # Enhanced fallback with specific damage information
+                return self._generate_enhanced_fallback_recommendations(context, score)
+        except:
+            return self._generate_enhanced_fallback_recommendations(context, score)
+
+        Создай 3-4 СУПЕР-КОНКРЕТНЫЕ рекомендации для улучшения:
+
+        Для водителя:
+        - Если грязный: "Мойка автомобиля в течение 24 часов" + "Увеличит заработок на 15%"
+        - Если царапины: "Полировка кузова в автосервисе" + "Защитит от ложных претензий"
+        - Если вмятины: "Рихтовка в сертифицированном центре" + "Восстановит премиум-статус"
+
+        Для inDrive:
+        - Автоматический флаг качества
+        - Уведомление водителя
+        - Мониторинг изменений
+
+        Формат JSON:
+        [
+          {{
+            "action": "Конкретное действие",
+            "impact": "Измеримый результат",
+            "priority": "высокий/средний/низкий",
+            "stakeholder": "driver/passenger/indrive",
+            "timeline": "срочно/1-3 дня/неделя",
+            "cost_benefit": "экономический эффект"
+          }}
+        ]
+
+        Только JSON массив, без дополнительного текста.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.deployment_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=400,
+                temperature=0.4
+            )
+            
+            recommendations_text = response.choices[0].message.content.strip()
+            # Try to parse JSON, fallback to structured recommendations if fails
+            try:
+                import json
+                return json.loads(recommendations_text)
+            except:
+                # Fallback to enhanced structured recommendations
+                return self._generate_enhanced_fallback_recommendations(context, score)
+        except:
+            return self._generate_enhanced_fallback_recommendations(context, score)
+    
+    def _calculate_condition_score(self, analysis: Dict[str, Any]) -> int:
+        """Calculate overall car condition score (0-100)"""
+        score = 100
+        
+        # Damage penalty
+        if analysis.get("is_damaged", False):
+            damage_parts = analysis.get("damage_parts_local", {})
+            rust_scratch = analysis.get("rust_scratch", {})
+            
+            # Base damage penalty
+            score -= 40
+            
+            # Additional penalties based on damage type
+            if rust_scratch and "pred_label" in rust_scratch:
+                damage_type = rust_scratch["pred_label"].lower()
+                if "rust" in damage_type:
+                    score -= 15  # Rust is serious
+                elif "dent" in damage_type:
+                    score -= 10  # Dents affect appearance
+                elif "scratch" in damage_type:
+                    score -= 5   # Scratches are cosmetic
+        
+        # Cleanliness penalty
+        dirty_result = analysis.get("dirty", {})
+        if dirty_result:
+            dirty_prob = dirty_result.get("dirty_prob", 0)
+            clean_prob = dirty_result.get("clean_prob", 1)
+            
+            if dirty_prob > clean_prob:
+                # Scale penalty based on confidence
+                cleanliness_penalty = int(20 * dirty_prob)
+                score -= cleanliness_penalty
+        
+        # Ensure score is within bounds
+        return max(0, min(100, score))
+
+    def _generate_enhanced_fallback_recommendations(self, context: str, score: int) -> list:
+        """Generate enhanced fallback recommendations based on analysis"""
+        recommendations = []
+        
+        # Parse the context to understand the issues
+        is_damaged = "повреждены" in context.lower() or "обнаружены" in context.lower()
+        is_dirty = "загрязнен" in context.lower() or "грязный" in context.lower()
+        
+        if is_damaged:
+            if "царапины" in context.lower() or "scratch" in context.lower():
+                recommendations.append({
+                    "action": "Полировка кузова для устранения царапин",
+                    "impact": "Увеличение стоимости автомобиля на 5-8%, защита от претензий",
+                    "priority": "средний",
+                    "stakeholder": "driver",
+                    "timeline": "1-3 дня",
+                    "cost_benefit": "Стоимость: 3000-5000₽, прибыль: +15% заказов"
+                })
+            if "вмятин" in context.lower() or "dent" in context.lower():
+                recommendations.append({
+                    "action": "Рихтовка кузова в сертифицированном центре",
+                    "impact": "Восстановление премиум-статуса, страховая защита",
+                    "priority": "высокий",
+                    "stakeholder": "driver",
+                    "timeline": "срочно",
+                    "cost_benefit": "ROI: 300% за 6 месяцев"
+                })
+        
+        if is_dirty:
+            recommendations.append({
+                "action": "Комплексная мойка автомобиля",
+                "impact": "Повышение рейтинга на 0.3-0.5 звезд, +15% заказов",
+                "priority": "высокий",
+                "stakeholder": "driver", 
+                "timeline": "24 часа",
+                "cost_benefit": "Стоимость: 800₽, дополнительный доход: +2000₽/неделя"
+            })
+        
+        # Business recommendations
+        if score < 80:
+            recommendations.append({
+                "action": "Автоматическое уведомление водителя через приложение",
+                "impact": "Проактивное улучшение качества флота",
+                "priority": "средний",
+                "stakeholder": "indrive",
+                "timeline": "немедленно",
+                "cost_benefit": "Снижение операционных расходов на 25%"
+            })
+        
+        # Always add quality monitoring
+        recommendations.append({
+            "action": "Включение в систему мониторинга качества",
+            "impact": "Предотвращение жалоб пассажиров, автоматизация QA",
+            "priority": "средний",
+            "stakeholder": "indrive",
+            "timeline": "постоянно",
+            "cost_benefit": "Экономия на ручных проверках: 60% времени менеджеров"
+        })
+        
+        return recommendations[:4]  # Return max 4 recommendations
+
+    def _generate_enhanced_fallback_recommendations(self, context: str, score: int) -> list:
+        """Generate enhanced fallback recommendations using context analysis"""
+        recommendations = []
+        
+        # Parse context for specific damage information
+        if "ПОВРЕЖДЕНИЯ ОБНАРУЖЕНЫ" in context:
+            if "doorouter-dent" in context:
+                recommendations.append({
+                    "action": "Устранить вмятину на внешней двери",
+                    "impact": "Повысит визуальное впечатление и рейтинг водителя",
+                    "priority": "высокий",
+                    "cost_estimate": "150-300$",
+                    "time_estimate": "1-2 дня"
+                })
+            elif "bumper" in context.lower():
+                recommendations.append({
+                    "action": "Отремонтировать повреждение бампера",
+                    "impact": "Обеспечит безопасность и соответствие стандартам",
+                    "priority": "высокий", 
+                    "cost_estimate": "200-500$",
+                    "time_estimate": "2-3 дня"
+                })
+            else:
+                recommendations.append({
+                    "action": "Устранить обнаруженные повреждения",
+                    "impact": "Повышение безопасности и рейтинга водителя",
+                    "priority": "высокий",
+                    "cost_estimate": "100-400$",
+                    "time_estimate": "1-3 дня"
+                })
+        
+        # Cleanliness recommendations
+        if "загрязнен" in context:
+            recommendations.append({
+                "action": "Провести полную мойку автомобиля",
+                "impact": "Улучшит впечатление пассажиров и рейтинги",
+                "priority": "средний",
+                "cost_estimate": "20-40$",
+                "time_estimate": "1-2 часа"
+            })
+        
+        # General maintenance based on score
+        if score < 70:
+            recommendations.append({
+                "action": "Комплексная проверка технического состояния",
+                "impact": "Предотвращение будущих проблем и затрат",
+                "priority": "высокий",
+                "cost_estimate": "50-150$", 
+                "time_estimate": "3-4 часа"
+            })
+        elif score < 90:
+            recommendations.append({
+                "action": "Профилактическое обслуживание",
+                "impact": "Поддержание высоких стандартов качества",
+                "priority": "средний",
+                "cost_estimate": "30-80$",
+                "time_estimate": "1-2 часа"
+            })
+        
+        # Always add a proactive recommendation
+        if score >= 80:
+            recommendations.append({
+                "action": "Поддерживать текущий уровень качества",
+                "impact": "Сохранение высокого рейтинга и премиальных заказов",
+                "priority": "низкий",
+                "cost_estimate": "бесплатно",
+                "time_estimate": "постоянно"
+            })
+        
+        return recommendations[:4]  # Limit to 4 recommendations
+
+    def _generate_fallback_driver_report(self, analysis: Dict[str, Any]) -> str:
+        """Generate basic driver report without LLM"""
+        is_damaged = analysis.get("is_damaged", False)
+        score = self._calculate_condition_score(analysis)
+        
+        if is_damaged:
+            return f"🔧 Обнаружены повреждения автомобиля (оценка: {score}/100). Рекомендуется устранить выявленные проблемы для повышения рейтинга и безопасности пассажиров. Качественное состояние автомобиля напрямую влияет на ваши заработки в inDrive."
+        else:
+            return f"✅ Автомобиль в хорошем состоянии (оценка: {score}/100). Поддерживайте чистоту и исправность для максимальных заработков. Пассажиры ценят качественный сервис!"
+
+    def _generate_fallback_passenger_report(self, analysis: Dict[str, Any]) -> str:
+        """Generate basic passenger report without LLM"""
+        is_damaged = analysis.get("is_damaged", False)
+        score = self._calculate_condition_score(analysis)
+        
+        if is_damaged:
+            return f"⚠️ Обнаружены повреждения автомобиля. Общая оценка: {score}/100. Рекомендуется обратить внимание водителя на состояние транспортного средства."
+        else:
+            return f"✅ Автомобиль прошел проверку состояния. Оценка: {score}/100. Поездка должна быть комфортной и безопасной."
+
+    def _generate_fallback_business_report(self, analysis: Dict[str, Any]) -> str:
+        """Generate basic business report without LLM"""
+        is_damaged = analysis.get("is_damaged", False)
+        score = self._calculate_condition_score(analysis)
+        
+        if score < 70:
+            return f"📊 Требуется внимание: оценка состояния {score}/100. Рекомендуется работа с водителем по улучшению качества автомобиля для повышения стандартов сервиса inDrive."
+        else:
+            return f"📈 Хорошее качество сервиса: оценка {score}/100. Автомобиль соответствует стандартам inDrive и способствует положительному опыту пассажиров."
+
+    def _generate_fallback_recommendations(self, analysis: Dict[str, Any], score: int) -> list:
+        """Generate basic recommendations without LLM"""
+        recommendations = []
+        
+        if analysis.get("is_damaged", False):
+            recommendations.append({
+                "action": "Устранить повреждения автомобиля",
+                "impact": "Повышение безопасности и рейтинга водителя",
+                "priority": "высокий"
+            })
+        
+        dirty_result = analysis.get("dirty", {})
+        if dirty_result and dirty_result.get("dirty_prob", 0) > 0.5:
+            recommendations.append({
+                "action": "Провести чистку автомобиля",
+                "impact": "Улучшение комфорта пассажиров",
+                "priority": "средний"
+            })
+        
+        if score < 80:
+            recommendations.append({
+                "action": "Общий осмотр и техническое обслуживание",
+                "impact": "Поддержание высоких стандартов качества",
+                "priority": "средний" if score > 60 else "высокий"
+            })
+        
+        return recommendations
+
+# Global instance
+llm_service = CarAnalysisLLMService()
