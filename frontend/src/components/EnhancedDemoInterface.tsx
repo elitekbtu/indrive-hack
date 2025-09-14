@@ -21,12 +21,52 @@ type ComprehensiveAnalysis = {
   metadata: any;
 };
 
+interface EndpointOption {
+  value: string;
+  label: string;
+  description: string;
+}
+
 export default function EnhancedDemoInterface() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<ComprehensiveAnalysis | null>(null);
   const [activeTab, setActiveTab] = useState<'technical' | 'driver' | 'passenger' | 'business'>('driver');
+  const [selectedEndpoint, setSelectedEndpoint] = useState<string>('analyze-comprehensive');
+
+  const endpointOptions: EndpointOption[] = [
+    {
+      value: 'analyze-comprehensive',
+      label: 'LLM-Powered Analysis',
+      description: 'Advanced analysis with AI-generated reports for drivers, passengers, and business'
+    },
+    {
+      value: 'analyze',
+      label: 'Comprehensive Analysis',
+      description: 'Full analysis with damage detection, parts localization, and type classification'
+    },
+    {
+      value: 'damage_local',
+      label: 'Damage Detection',
+      description: 'Binary classification: damaged vs intact'
+    },
+    {
+      value: 'dirty_local',
+      label: 'Cleanliness Check',
+      description: 'Detect if the car is clean or dirty'
+    },
+    {
+      value: 'rust_scratch_local',
+      label: 'Damage Type Classification',
+      description: 'Classify damage type: rust, scratch, dent, etc.'
+    },
+    {
+      value: 'damage_parts_local',
+      label: 'Damage Parts Localization',
+      description: 'Identify which specific part of the car is damaged'
+    }
+  ];
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -46,20 +86,38 @@ export default function EnhancedDemoInterface() {
     multiple: false
   });
 
-  const runComprehensiveAnalyze = async () => {
+  const runAnalyze = async () => {
     if (!selectedFile) return;
     try {
       setIsAnalyzing(true);
       setAnalysisResult(null);
       const form = new FormData();
       form.append('image', selectedFile);
-      const res = await fetch('/analyze-comprehensive', {
+      const res = await fetch(`/${selectedEndpoint}`, {
         method: 'POST',
         body: form,
       });
       const data = await res.json();
-      setAnalysisResult(data);
-      setActiveTab('driver'); // Default to driver view
+      
+      // Handle different response formats
+      if (selectedEndpoint === 'analyze-comprehensive') {
+        setAnalysisResult(data);
+        setActiveTab('driver'); // Default to driver view for comprehensive analysis
+      } else {
+        // For other endpoints, create a simplified result structure
+        setAnalysisResult({
+          technical_analysis: data,
+          condition_score: data.is_damaged ? 60 : 90, // Simple scoring
+          reports: {
+            driver: `Результат анализа: ${JSON.stringify(data, null, 2)}`,
+            passenger: `Техническая информация: ${JSON.stringify(data, null, 2)}`,
+            business: `Данные для анализа: ${JSON.stringify(data, null, 2)}`
+          },
+          recommendations: [],
+          metadata: { endpoint: selectedEndpoint }
+        });
+        setActiveTab('technical'); // Default to technical view for other endpoints
+      }
     } catch (e) {
       setAnalysisResult({
         technical_analysis: { error: 'Request failed', details: String(e) },
@@ -70,7 +128,7 @@ export default function EnhancedDemoInterface() {
           business: 'Сервис недоступен'
         },
         recommendations: [],
-        metadata: {}
+        metadata: { endpoint: selectedEndpoint }
       });
     } finally {
       setIsAnalyzing(false);
@@ -119,6 +177,45 @@ export default function EnhancedDemoInterface() {
             AI-powered система комплексной оценки состояния автомобиля с персонализированными отчетами для всех участников
           </p>
         </div>
+
+        {/* Endpoint Selector */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Выберите тип анализа</CardTitle>
+            <CardDescription>
+              Выберите нужный тип анализа для вашего изображения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {endpointOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedEndpoint === option.value
+                        ? 'border-indrive-green-400 bg-indrive-green-950/30'
+                        : 'border-indrive-green-700 hover:border-indrive-green-600'
+                    }`}
+                    onClick={() => setSelectedEndpoint(option.value)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-indrive-green-200">
+                        {option.label}
+                      </h3>
+                      {selectedEndpoint === option.value && (
+                        <div className="w-3 h-3 rounded-full bg-indrive-green-400"></div>
+                      )}
+                    </div>
+                    <p className="text-sm text-indrive-green-400">
+                      {option.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
           {/* Upload Area */}
@@ -174,12 +271,12 @@ export default function EnhancedDemoInterface() {
                   
                   {!isAnalyzing && !analysisResult && (
                     <Button 
-                      onClick={runComprehensiveAnalyze}
+                      onClick={runAnalyze}
                       disabled={!selectedFile}
                       className="w-full bg-gradient-to-r from-indrive-green-500 to-indrive-green-400 hover:from-indrive-green-600 hover:to-indrive-green-500"
                       size="lg"
                     >
-                      🚀 Запустить умный анализ
+                      🚀 {endpointOptions.find(opt => opt.value === selectedEndpoint)?.label || 'Запустить анализ'}
                     </Button>
                   )}
                   
